@@ -781,5 +781,317 @@
   <div class="footer-text">Dimitri Van Mieghem &nbsp;·&nbsp; 0470/48.18.82 &nbsp;·&nbsp; dimitri.vanmieghem@gmail.com</div>
 </div>
 
+
+<!-- ── CHATBOT WIDGET ── -->
+<style>
+  /* Bouton flottant */
+  .chat-fab {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    background: var(--accent);
+    border: none;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 4px 20px rgba(15,31,61,0.35);
+    z-index: 1000;
+    transition: transform 0.2s ease, background 0.2s ease;
+  }
+  .chat-fab:hover { transform: scale(1.08); background: var(--accent-light); }
+  .chat-fab svg { width: 26px; height: 26px; }
+
+  /* Fenêtre de chat */
+  .chat-window {
+    position: fixed;
+    bottom: 90px;
+    right: 16px;
+    width: min(360px, calc(100vw - 32px));
+    max-height: 520px;
+    background: var(--white);
+    border-radius: 20px;
+    box-shadow: 0 8px 40px rgba(15,31,61,0.22);
+    display: flex;
+    flex-direction: column;
+    z-index: 999;
+    overflow: hidden;
+    opacity: 0;
+    transform: translateY(20px) scale(0.96);
+    pointer-events: none;
+    transition: opacity 0.25s ease, transform 0.25s ease;
+  }
+  .chat-window.open {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+    pointer-events: all;
+  }
+
+  /* Header */
+  .chat-header {
+    background: var(--navy);
+    padding: 14px 18px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-shrink: 0;
+  }
+  .chat-avatar {
+    width: 36px; height: 36px;
+    border-radius: 50%;
+    border: 2px solid var(--accent);
+    overflow: hidden;
+    flex-shrink: 0;
+  }
+  .chat-avatar img { width: 100%; height: 100%; object-fit: cover; object-position: center 15%; }
+  .chat-header-text {}
+  .chat-title {
+    font-size: 14px; font-weight: 600;
+    color: var(--white);
+    font-family: 'Cormorant Garamond', serif;
+  }
+  .chat-subtitle {
+    font-size: 10px;
+    color: var(--accent);
+    margin-top: 1px;
+  }
+  .chat-close {
+    margin-left: auto;
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: rgba(255,255,255,0.5);
+    font-size: 22px;
+    line-height: 1;
+    padding: 0 2px;
+    transition: color 0.2s;
+  }
+  .chat-close:hover { color: var(--white); }
+
+  /* Corps messages */
+  .chat-messages {
+    flex: 1;
+    overflow-y: auto;
+    padding: 16px 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    background: #F7F4EF;
+  }
+  .chat-messages::-webkit-scrollbar { width: 4px; }
+  .chat-messages::-webkit-scrollbar-track { background: transparent; }
+  .chat-messages::-webkit-scrollbar-thumb { background: #DDD8D0; border-radius: 2px; }
+
+  /* Bulles */
+  .bubble {
+    max-width: 82%;
+    padding: 10px 14px;
+    border-radius: 16px;
+    font-size: 13px;
+    line-height: 1.55;
+    animation: bubbleIn 0.25s ease forwards;
+  }
+  @keyframes bubbleIn {
+    from { opacity: 0; transform: translateY(8px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  .bubble-user {
+    background: var(--navy);
+    color: var(--white);
+    align-self: flex-end;
+    border-bottom-right-radius: 4px;
+  }
+  .bubble-bot {
+    background: var(--white);
+    color: var(--text);
+    align-self: flex-start;
+    border-bottom-left-radius: 4px;
+    box-shadow: 0 1px 6px rgba(0,0,0,0.08);
+  }
+  .bubble-bot strong { color: var(--accent); font-weight: 600; }
+
+  /* Typing indicator */
+  .typing {
+    display: flex; gap: 4px;
+    align-items: center;
+    align-self: flex-start;
+    padding: 10px 14px;
+    background: var(--white);
+    border-radius: 16px;
+    border-bottom-left-radius: 4px;
+    box-shadow: 0 1px 6px rgba(0,0,0,0.08);
+  }
+  .typing span {
+    width: 7px; height: 7px;
+    border-radius: 50%;
+    background: var(--accent);
+    animation: typingDot 1.2s infinite ease-in-out;
+  }
+  .typing span:nth-child(2) { animation-delay: 0.2s; }
+  .typing span:nth-child(3) { animation-delay: 0.4s; }
+  @keyframes typingDot {
+    0%, 60%, 100% { transform: translateY(0); opacity: 0.4; }
+    30% { transform: translateY(-5px); opacity: 1; }
+  }
+
+  /* Boutons questions */
+  .chat-questions {
+    padding: 12px 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
+    background: var(--white);
+    border-top: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+  .chat-questions-label {
+    font-size: 10px;
+    font-weight: 600;
+    color: var(--muted);
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    margin-bottom: 2px;
+  }
+  .chat-btn {
+    background: var(--cream);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 8px 14px;
+    font-size: 12px;
+    color: var(--navy);
+    font-weight: 500;
+    cursor: pointer;
+    text-align: left;
+    transition: background 0.15s, border-color 0.15s;
+    font-family: 'Jost', sans-serif;
+  }
+  .chat-btn:hover { background: var(--accent-light); border-color: var(--accent); }
+  .chat-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+  .chat-btn.used { opacity: 0.35; text-decoration: line-through; cursor: not-allowed; }
+</style>
+
+<!-- Bouton flottant -->
+<button class="chat-fab" onclick="toggleChat()" aria-label="Ouvrir le chatbot">
+  <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <path d="M12 2C6.48 2 2 6.03 2 11c0 2.64 1.18 5.01 3.07 6.69L4 21l4.26-1.42C9.39 19.84 10.67 20 12 20c5.52 0 10-4.03 10-9S17.52 2 12 2ZM8 12H7v-1h1v1Zm5 0h-1v-1h1v1Zm5 0h-1v-1h1v1Z" fill="#0F1F3D"/>
+  </svg>
+</button>
+
+<!-- Fenêtre de chat -->
+<div class="chat-window" id="chatWindow">
+
+  <div class="chat-header">
+    <div class="chat-avatar">
+      <img id="chatAvatarImg" src="" alt="Dimitri" />
+    </div>
+    <div class="chat-header-text">
+      <div class="chat-title">Assistant Dimitri</div>
+      <div class="chat-subtitle">Posez-moi vos questions ✦</div>
+    </div>
+    <button class="chat-close" onclick="toggleChat()" aria-label="Fermer">×</button>
+  </div>
+
+  <div class="chat-messages" id="chatMessages">
+    <div class="bubble bubble-bot">
+      Bonjour ! 👋 Je suis l'assistant de <strong>Dimitri</strong>.<br/>
+      Choisissez une question pour en savoir plus sur son parcours.
+    </div>
+  </div>
+
+  <div class="chat-questions" id="chatQuestions">
+    <div class="chat-questions-label">Vos questions</div>
+    <button class="chat-btn" onclick="askQuestion(0)">💼 Pourquoi quitter l'hôtellerie de nuit ?</button>
+    <button class="chat-btn" onclick="askQuestion(1)">💻 Comment as-tu acquis tes compétences IT ?</button>
+    <button class="chat-btn" onclick="askQuestion(2)">⚡ Comment gères-tu les urgences ?</button>
+    <button class="chat-btn" onclick="askQuestion(3)">🏡 Quel est ton environnement idéal ?</button>
+  </div>
+
+</div>
+
+<script>
+  // ── Injecter la photo dans l'avatar du chat ──
+  (function() {
+    const mainAvatar = document.querySelector('.avatar img');
+    if (mainAvatar) {
+      document.getElementById('chatAvatarImg').src = mainAvatar.src;
+    }
+  })();
+
+  // ── Q&A ──
+  const QA = [
+    {
+      q: "Pourquoi quitter l'hôtellerie de nuit ?",
+      a: "Pour retrouver un équilibre. La nuit m'a forgé une grande autonomie, mais je veux aujourd'hui capitaliser sur mes points forts — gestion administrative, IT, suivi client — dans un rythme de journée où je suis 100% productif pour l'équipe."
+    },
+    {
+      q: "Comment as-tu acquis tes compétences techniques (IT, Carpit.be) ?",
+      a: "Je suis 100% autodidacte. Ma méthode : j'observe, j'analyse et je trouve les solutions. Cette adaptabilité me permet d'être opérationnel sur de nouveaux outils en un temps record — et de ne jamais rester bloqué."
+    },
+    {
+      q: "Comment gères-tu les urgences et la pression ?",
+      a: "Avec pragmatisme, par ordre de priorité. Je trie les requêtes selon leur impact réel sur l'activité. Assurer la continuité du service passera toujours avant un simple souci de mise à jour."
+    },
+    {
+      q: "Quel est ton environnement de travail idéal ?",
+      a: "Une équipe solidaire où la flexibilité va dans les deux sens. J'ai besoin d'être dans l'action, d'apprendre et d'évoluer. Si vous cherchez quelqu'un qui s'implique vraiment, je serais ravi d'en discuter !"
+    }
+  ];
+
+  let chatOpen = false;
+  const usedQuestions = new Set();
+
+  function toggleChat() {
+    chatOpen = !chatOpen;
+    document.getElementById('chatWindow').classList.toggle('open', chatOpen);
+  }
+
+  function askQuestion(index) {
+    if (usedQuestions.has(index)) return;
+    usedQuestions.add(index);
+
+    // Marquer le bouton comme utilisé
+    const btns = document.querySelectorAll('.chat-btn');
+    btns[index].classList.add('used');
+    btns[index].disabled = true;
+
+    const messages = document.getElementById('chatMessages');
+    const { q, a } = QA[index];
+
+    // Bulle utilisateur
+    const userBubble = document.createElement('div');
+    userBubble.className = 'bubble bubble-user';
+    userBubble.textContent = q;
+    messages.appendChild(userBubble);
+    scrollChat();
+
+    // Typing indicator
+    const typing = document.createElement('div');
+    typing.className = 'typing';
+    typing.innerHTML = '<span></span><span></span><span></span>';
+    messages.appendChild(typing);
+    scrollChat();
+
+    // Réponse après délai
+    setTimeout(() => {
+      messages.removeChild(typing);
+      const botBubble = document.createElement('div');
+      botBubble.className = 'bubble bubble-bot';
+      botBubble.innerHTML = a;
+      messages.appendChild(botBubble);
+      scrollChat();
+    }, 1200);
+  }
+
+  function scrollChat() {
+    const messages = document.getElementById('chatMessages');
+    setTimeout(() => {
+      messages.scrollTop = messages.scrollHeight;
+    }, 50);
+  }
+</script>
+
 </body>
 </html>
